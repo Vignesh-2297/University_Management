@@ -1,425 +1,512 @@
+// Online C++ compiler to run C++ program online
 #include <iostream>
-#include <iomanip>
 #include <vector>
+#include <map>
 #include <string>
-#include <ctime>
-#include <cstdlib>
-#include<fstream>
+#include <iomanip>
+#include <algorithm>
+#include <exception>
+#include <fstream>
 
 using namespace std;
 
-// Faculty class to store faculty details
-class Faculty {
+// Base Class: Person
+class Person {
+protected:
+    string name, ID, email, password;
 public:
-    string facultyCode;
-    string facultyName;
-    string department;
+    Person() : name(""), ID(""), email(""), password("") {}
+    Person(const string& n, const string& i, const string& e, const string& p) 
+        : name(n), ID(i), email(e), password(p) {}
 
-public:
-    Faculty(string code, string name, string dept)
-        : facultyCode(code), facultyName(name), department(dept) {}
-
-    void displayInfo() const {
-        cout << "Faculty Code: " << facultyCode << endl;
-        cout << "Faculty Name: " << facultyName << endl;
-        cout << "Department: " << department << endl;
+    virtual void inputLoginDetails() {
+        cout << "Enter Name: ";
+        getline(cin, name);
+        cout << "Enter ID: ";
+        cin >> ID;
+        cin.ignore();
+        cout << "Enter Email: ";
+        getline(cin, email);
+        cout << "Set Password: ";
+        cin >> password;
+        cin.ignore();
     }
 
-    string getFacultyCode() const {
-        return facultyCode;
+    bool login(const string& id, const string& pass) const {
+        return (ID == id && password == pass);
     }
 
-    string generateAttendanceCode() const {
-        string code;
-        static const char characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        for (int i = 0; i < 6; ++i) {
-            code += characters[rand() % (sizeof(characters) - 1)];
+    string getID() const {
+        return ID;
+    }
+
+    virtual void displayInfo() const {
+        cout << "Name: " << name << "\nID: " << ID << "\nEmail: " << email << endl;
+    }
+
+    virtual void saveToFile(ofstream& file) const = 0;  // Pure virtual function for saving data
+    virtual void loadFromFile(ifstream& file) = 0;      // Pure virtual function for loading data
+};
+
+// Derived Class: Student
+class Student : public Person {
+private:
+    vector<string> courses;
+    map<string, double> marks;   // courseID -> marks
+    map<string, char> grades;   // courseID -> grade
+    int attendance;
+    double CGPA;
+
+    char calculateGrade(double marks) {
+        if (marks >= 90) return 'A';
+        if (marks >= 80) return 'B';
+        if (marks >= 70) return 'C';
+        if (marks >= 60) return 'D';
+        return 'F';
+    }
+
+    void calculateCGPA() {
+        if (grades.empty()) {
+            CGPA = 0.0;
+            return;
         }
-        return code;
-    }
-};
 
-class Subject {
+        double gradePoints = 0.0;
+        for (const auto& [course, grade] : grades) {
+            switch (grade) {
+                case 'A': gradePoints += 10.0; break;
+                case 'B': gradePoints += 9.0; break;
+                case 'C': gradePoints += 8.0; break;
+                case 'D': gradePoints += 7.0; break;
+                default: gradePoints += 0.0;
+            }
+        }
+        CGPA = gradePoints / grades.size();
+    }
+
 public:
-    string name;
-    int credits;
-    int marks;
-    string grade;
-    int points;
-    string result;
-    int totalClasses;
-    int attendedClasses;
+    Student() : Person(), attendance(0), CGPA(0.0) {}
 
-    Subject(string name, int credits, int totalClasses = 0, int attendedClasses = 0)
-        : name(name), credits(credits), marks(0), grade(""), points(0), result("PASS"),
-          totalClasses(totalClasses), attendedClasses(attendedClasses) {}
-
-    void assignGrade() {
-        if (marks >= 91) { grade = "O"; points = 10; }
-        else if (marks >= 81) { grade = "A+"; points = 9; }
-        else if (marks >= 71) { grade = "A"; points = 8; }
-        else if (marks >= 61) { grade = "B+"; points = 7; }
-        else if (marks >= 51) { grade = "B"; points = 6; }
-        else if (marks >= 41) { grade = "C"; points = 5; }
-        else { grade = "F"; points = 0; result = "FAIL"; }
-    }
-
-    void calculateAttendancePercentage() {
-        if (totalClasses > 0) {
-            float attendancePercentage = (static_cast<float>(attendedClasses) / totalClasses) * 100;
-            cout << "Attendance Percentage for " << name << ": " << attendancePercentage << "%" << endl;
+    void registerCourse(const string& courseID) {
+        if (find(courses.begin(), courses.end(), courseID) == courses.end()) {
+            courses.push_back(courseID);
+            cout << "Registered for course: " << courseID << endl;
+        } else {
+            cout << "Already registered for this course." << endl;
         }
     }
 
-    void enterAttendance() {
-        cout << "Enter total number of classes held for " << name << ": ";
-        cin >> totalClasses;
-        cout << "Enter number of classes attended: ";
-        cin >> attendedClasses;
-        calculateAttendancePercentage();
+    void addMarks(const string& courseID, double courseMarks) {
+        if (find(courses.begin(), courses.end(), courseID) == courses.end()) {
+            cout << "Student is not registered for course: " << courseID << endl;
+            return;
+        }
+        marks[courseID] = courseMarks;
+        grades[courseID] = calculateGrade(courseMarks);
+        calculateCGPA();
+    }
+
+    void markAttendance(int days) {
+        if (days < 0) {
+            cout << "Attendance days cannot be negative.\n";
+            return;
+        }
+        attendance += days;
+    }
+
+    void viewAccount() const {
+        cout << "Welcome, " << name << "!\n";
+        cout << "Attendance: " << attendance << " days\n";
+        cout << "Registered Courses and Marks:\n";
+        for (const auto& course : courses) {
+            cout << "  " << course << ": ";
+            if (marks.find(course) != marks.end()) {
+                cout << "Marks: " << marks.at(course) << ", Grade: " << grades.at(course) << endl;
+            } else {
+                cout << "Marks not entered yet.\n";
+            }
+        }
+        cout << "CGPA: " << fixed << setprecision(2) << CGPA << endl;
+    }
+
+    void saveToFile(ofstream& file) const override {
+        file << "Student\n";
+        file << name << "\n" << ID << "\n" << email << "\n" << password << "\n";
+        file << courses.size() << "\n";
+        for (const auto& course : courses) {
+            file << course << "\n";
+        }
+        file << marks.size() << "\n";
+        for (const auto& [course, mark] : marks) {
+            file << course << " " << mark << "\n";
+        }
+        file << grades.size() << "\n";
+        for (const auto& [course, grade] : grades) {
+            file << course << " " << grade << "\n";
+        }
+        file << attendance << "\n";
+        file << CGPA << "\n";
+    }
+
+    void loadFromFile(ifstream& file) override {
+        file.ignore();
+        getline(file, name);
+        getline(file, ID);
+        getline(file, email);
+        getline(file, password);
+
+        int courseCount;
+        file >> courseCount;
+        courses.clear();
+        for (int i = 0; i < courseCount; ++i) {
+            string course;
+            file >> course;
+            courses.push_back(course);
+        }
+
+        int marksCount;
+        file >> marksCount;
+        marks.clear();
+        for (int i = 0; i < marksCount; ++i) {
+            string course;
+            double mark;
+            file >> course >> mark;
+            marks[course] = mark;
+        }
+
+        int gradeCount;
+        file >> gradeCount;
+        grades.clear();
+        for (int i = 0; i < gradeCount; ++i) {
+            string course;
+            char grade;
+            file >> course >> grade;
+            grades[course] = grade;
+        }
+
+        file >> attendance;
+        file >> CGPA;
     }
 };
 
-class Student {
+// Derived Class: Faculty
+class Faculty : public Person {
+private:
+    vector<string> assignedCourses;
 public:
-    string name;
-    string rollNo;
+    Faculty() : Person() {}
 
-    Student(string name, string rollNo) : name(name), rollNo(rollNo) {}
+    void assignMarks(Student& student, const string& courseID, double marks) {
+        student.addMarks(courseID, marks);
+        cout << "Marks assigned successfully.\n";
+    }
 
-    void displayStudentDetails() {
-        cout << "Student: " << name << " (" << rollNo << ")\n";
+    void assignAttendance(Student& student, int days) {
+        student.markAttendance(days);
+        cout << "Attendance assigned successfully.\n";
+    }
+
+    void inputDetails() {
+        Person::inputLoginDetails();
+        cout << "Enter number of courses to assign: ";
+        int numCourses;
+        cin >> numCourses;
+        cin.ignore();
+        for (int i = 0; i < numCourses; ++i) {
+            string course;
+            cout << "Enter Course ID for course " << (i + 1) << ": ";
+            getline(cin, course);
+            assignedCourses.push_back(course);
+        }
+    }
+
+    void displayInfo() const override {
+        Person::displayInfo();
+        cout << "Assigned Courses: ";
+        for (const auto& course : assignedCourses) cout << course << " ";
+        cout << endl;
+    }
+
+    void saveToFile(ofstream& file) const override {
+        file << "Faculty\n";
+        file << name << "\n" << ID << "\n" << email << "\n" << password << "\n";
+        file << assignedCourses.size() << "\n";
+        for (const auto& course : assignedCourses) {
+            file << course << "\n";
+        }
+    }
+
+    void loadFromFile(ifstream& file) override {
+        file.ignore();
+        getline(file, name);
+        getline(file, ID);
+        getline(file, email);
+        getline(file, password);
+
+        int courseCount;
+        file >> courseCount;
+        assignedCourses.clear();
+        for (int i = 0; i < courseCount; ++i) {
+            string course;
+            file >> course;
+            assignedCourses.push_back(course);
+        }
     }
 };
 
-class Course {
-public:
-    vector<Subject> subjects;
+// Main Function
+int main() {
+    vector<Student> students;
+    vector<Faculty> faculties;
 
-    // Constructor to initialize subjects based on the semester
-    Course(int semesterNo) {
-        switch (semesterNo) {
+    // Load data from files
+    ifstream studentFile("students.txt");
+    ifstream facultyFile("faculties.txt");
+
+    if (studentFile.is_open()) {
+        string line;
+        while (getline(studentFile, line)) {
+            Student student;
+            student.loadFromFile(studentFile);
+            students.push_back(student);
+        }
+        studentFile.close();
+    }
+
+    if (facultyFile.is_open()) {
+        string line;
+        while (getline(facultyFile, line)) {
+            Faculty faculty;
+            faculty.loadFromFile(facultyFile);
+            faculties.push_back(faculty);
+        }
+        facultyFile.close();
+    }
+
+    int choice;
+    do {
+        cout << "\nWelcome to University Management System\n";
+        cout << "1. Add Student\n";
+        cout << "2. Add Faculty\n";
+        cout << "3. Admin Login\n";
+        cout << "4. Student Login\n";
+        cout << "5. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+        cin.ignore();
+
+        if (choice == 1) {
+            Student student;
+            cout << "\nEnter Student Details:\n";
+            student.inputLoginDetails();
+            students.push_back(student);
+            cout << "Student added successfully!\n";
+
+        } else if (choice == 2) {
+            Faculty faculty;
+            cout << "\nEnter Faculty Details:\n";
+            faculty.inputDetails();
+            faculties.push_back(faculty);
+            cout << "Faculty added successfully!\n";
+
+        } else if (choice == 3) {
+            string facultyID, password;
+            cout << "\nEnter Faculty ID: ";
+            cin >> facultyID;
+            cout << "Enter Password: ";
+            cin >> password;
+
+            auto it = find_if(faculties.begin(), faculties.end(),
+                              [&](const Faculty& f) { return f.login(facultyID, password); });
+            if (it != faculties.end()) {
+                cout << "Login successful!\n";
+                int facultyChoice;
+                do {
+                    cout << "\n1. Assign Marks\n2. Assign Attendance\n3. Logout\n";
+                    cout << "Enter your choice: ";
+                    cin >> facultyChoice;
+
+                    if (facultyChoice == 1) {
+                        string studentID, courseID;
+                        double marks;
+                        cout << "Enter Student ID: ";
+                        cin >> studentID;
+                        cout << "Enter Course ID: ";
+                        cin >> courseID;
+                        cout << "Enter Marks: ";
+                        cin >> marks;
+                         if(marks>100){
+                        
+                        auto studentIt = find_if(students.begin(), students.end(),
+                                                 [&](const Student& s) { return s.getID() == studentID; });
+                        if (studentIt != students.end()) {
+                            it->assignMarks(*studentIt, courseID, marks);
+                        } else {
+                            cout << "Student not found.\n";
+                        }
+                         }else{
+                            cout<<"Inavalid Marks"<<endl;
+                            cout<<"Enter Marks:"<<endl;
+                            cin>>marks;
+                         }
+                    
+                    } else if (facultyChoice == 2) {
+                        string studentID;
+                        int days;
+                        cout << "Enter Student ID: ";
+                        cin >> studentID;
+                        cout << "Enter Attendance Percentage: ";
+                        cin >> days;
+
+                        auto studentIt = find_if(students.begin(), students.end(),
+                                                 [&](const Student& s) { return s.getID() == studentID; });
+                        if (studentIt != students.end()) {
+                            it->assignAttendance(*studentIt, days);
+                        } else {
+                            cout << "Student not found.\n";
+                        }
+                    }
+                } while (facultyChoice != 3);
+            } else {
+                cout << "Invalid credentials.\n";
+            }
+
+        } else if (choice == 4) { // Student Login
+            string studentID, password;
+            cout << "\nEnter Student ID: ";
+            cin >> studentID;
+            cout << "Enter Password: ";
+            cin >> password;
+
+            auto it = find_if(students.begin(), students.end(),
+                              [&](const Student& s) { return s.login(studentID, password); });
+            if (it != students.end()) {
+                cout << "Login successful!\n";
+                int studentChoice;
+                do {
+                    cout << "\n1. View Account\n2. Register for a Course\n3. Logout\n";
+                    cout << "Enter your choice: ";
+                    cin >> studentChoice;
+
+                    if (studentChoice == 1) {
+                        it->viewAccount();
+
+                    } else if (studentChoice == 2) {
+                        int semno;
+                        cout<<"enter sem no:";
+                        cin>>semno;
+                        switch (semno) {
             case 1:
-                subjects = { Subject("Engineering Physics", 3, 50),
-                    Subject("Calculus for Engineers", 3, 50),
-                    Subject("C Programming", 4, 50),
-                    Subject("Analytical Reasoning", 3, 50),
-                    Subject("Environmental Science", 2, 50),
-                    Subject("Emerging Technologies", 2, 50)
-                    };
+                                cout<<"Course Name                   Course  ID"<<endl;
+                             cout<<"Engineering Physics             101"<<endl;
+                             cout<< "Calculus for Engineers          102"<<endl;
+                             cout<<"C Programming                   103"<<endl;
+                             cout<<"Analytical Reasoning            104"<<endl;
+                             cout<<"Environmental Science           105"<<endl;
+                             cout<<"Emerging Technologies           106"<<endl;
                 break;
-            case 2:
-                subjects = { Subject("Ethics and Human Values", 2, 50),
-                    Subject("Economics and Management", 3, 50),
-                    Subject("Data Structures", 4, 50),
-                    Subject("Basics of EEE", 3, 50),
-                    Subject("Entrepreneurial Mindset", 2, 50),
-                    Subject("Linear Algebra and DE", 3, 50)
-                    };
-                break;
-            case 3:
-                subjects = { Subject("OOPS with C++", 4, 50),
-                    Subject("DAA", 4, 50),
-                    Subject("(Minor-1)", 3, 50),
-                    Subject("Discrete Mathematics", 3, 50),
-                    Subject("Digital Electronics", 3, 50),
-                    Subject("Problem Solving Skills", 2, 50)
-                    };
-                break;
-            case 4:
-                subjects = {Subject("Web Technology", 4, 50),
-                    Subject("Python", 2, 50),
-                    Subject("DBMS", 4, 50),
-                    Subject("(Minor-2)", 3, 50),
-                    Subject("Thinking & Creative Skills", 2, 50),
-                    Subject("Probability & Statistics", 3, 50)
-                    };
-                break;
-            case 5:
-                subjects = {Subject("Computer Networks", 4, 50),
-                    Subject("(Minor-3)", 3, 50),
-                    Subject("Machine Learning", 4, 50),
-                    Subject("Operating Systems", 4, 50),
-                    Subject("Automata & Compiler Design", 3, 50),
-                    Subject("Computer Architecture", 4, 50)
-                    };
-                break;
-            case 6:
-                subjects = {Subject("Software Engineering", 4, 50),
-                    Subject("(Minor-4)", 3, 50),
-                    Subject("Core-Elective(1)", 3, 50),
-                    Subject("Stream Elective(1)", 4, 50),
-                    Subject("App Development (JAVA)", 4, 50),
-                    Subject("Stream Elective(2)", 4, 50)
-                    };
-                break;
-            case 7:
-                subjects = {Subject("Internship/Project", 4, 50),
-                    Subject("(Minor-5)", 3, 50),
-                    Subject("Core-Elective(2)", 3, 50),
-                    Subject("Stream Elective(3)", 4, 50),
-                    Subject("Stream Elective(4)", 4, 50),
-                    Subject("Mock Interview Training", 3, 50)
-                    };
-                break;
+      case 2:
+      cout<<"Course Name                   Course  ID"<<endl;
+            cout << "Ethics and Human Values             201" << endl;
+            cout << "Economics and Management            202" << endl;
+            cout << "Data Structures                     203" << endl;
+            cout << "Basics of EEE                       204" << endl;
+            cout << "Entrepreneurial Mindset             205" << endl;
+            cout << "Linear Algebra and DE               206" << endl;
+            break;
+        case 3:
+        cout<<"Course Name                   Course  ID"<<endl;
+            cout << "OOPS with C++                       301" << endl;
+            cout << "DAA                                 302" << endl;
+            cout << "(Minor-1)                           303" << endl; // Added course code 301
+            cout << "Discrete Mathematics                304" << endl;
+            cout << "Digital Electronics                 305" << endl;
+            cout << "Problem Solving Skills              306" << endl;
+            break;
+        case 4:
+        cout<<"Course Name                   Course  ID"<<endl;
+            cout << "Web Technology                      401" << endl;
+            cout << "Python                              402" << endl;
+            cout << "DBMS                                403" << endl;
+            cout << "(Minor-2)                           404" << endl;
+            cout << "Thinking & Creative Skills          405" << endl;
+            cout << "Probability & Statistics            406" << endl;
+            break;
+        case 5:
+        cout<<"Course Name                   Course  ID"<<endl;
+            cout << "Computer Networks                   501" << endl;
+            cout << "(Minor-3)                           502" << endl;
+            cout << "Machine Learning                    503" << endl;
+            cout << "Operating Systems                   504" << endl;
+            cout << "Automata & Compiler Design          505" << endl;
+            cout << "Computer Architecture               506" << endl;
+            break;
+        case 6:
+        cout<<"Course Name                   Course  ID"<<endl;
+            cout << "Software Engineering                601" << endl;
+            cout << "(Minor-4)                           602" << endl;
+            cout << "Core-Elective(1)                    603" << endl;
+            cout << "Stream Elective(1)                  604" << endl;
+            cout << "App Development (JAVA)              605" << endl;
+            cout << "Stream Elective(2)                  606" << endl;
+            break;
+        case 7:
+        cout<<"Course Name                   Course  ID"<<endl;
+            cout << "Internship/Project                  701" << endl;
+            cout << "(Minor-5)                           702" << endl;
+            cout << "Core-Elective(2)                    703" << endl;
+            cout << "Stream Elective(3)                  704" << endl;
+            cout << "Stream Elective(4)                  705" << endl;
+            cout << "Mock Interview Training             706" << endl;
+            break;
             case 8:
-                subjects = {Subject("Major Project", 12, 50)
-                };
+                cout<<"Major Project"<<endl;
                 break;
             default:
                 cout << "Invalid semester number.\n";
                 break;
         }
+                        // string courseID;
+                        // cout << "Enter Course ID to register: ";
+                        // cin >> courseID;
+                        // it->registerCourse(courseID);
+                        
+                           int numCourses;
+    cout << "Enter the number of courses to register for this semester: ";
+    cin >> numCourses;
+
+    for (int i = 0; i < numCourses; ++i) {
+        string courseID;
+        cout << "Enter Course ID for course " << (i + 1) << ": ";
+        cin >> courseID;
+        it->registerCourse(courseID);
     }
 
-    void displayCourses() {
-        cout << left << setw(30) << "COURSE NAME" << setw(10) << "CREDITS\n";
-        cout << "------------------------    -------\n";
-        for (int i = 0; i < subjects.size(); ++i) {
-            cout << left << setw(3) << i + 1 << setw(30) << subjects[i].name << setw(10) << subjects[i].credits << "\n";
-        }
-    }
-
-    void enterMarks() {
-        for (auto& subject : subjects) {
-            cout << "Enter marks for " << subject.name << ": ";
-            cin >> subject.marks;
-            subject.assignGrade();
-        }
-    }
-
-    float calculateCGPA() {
-        int totalCredits = 0;
-        float weightedPoints = 0;
-
-        for (auto& subject : subjects) {
-            totalCredits += subject.credits;
-            weightedPoints += subject.points * subject.credits;
-        }
-
-        return weightedPoints / totalCredits;
-    }
-
-    void displayResults(int semesterNo) {
-        cout << "SEMESTER " << semesterNo << " RESULTS:\n";
-        cout << left << setw(30) << "Subject Description" << setw(10) << "Credit" << setw(10) << "Grade" << "Result\n";
-        cout << "----------------------      ------      -----      ------\n";
-        for (auto& subject : subjects) {
-            cout << left << setw(30) << subject.name << setw(10) << subject.credits << setw(10) << subject.grade << subject.result << "\n";
-        }
-    }
-
-    void enterAttendance() {
-        for (auto& subject : subjects) {
-            subject.enterAttendance();
-        }
-    }
-};
-// Function to save faculty details to a file
-void saveFacultyData(const vector<Faculty>& facultyList) {
-    ofstream outFile("faculty_data.txt");
-    if (outFile.is_open()) {
-        for (const auto& faculty : facultyList) {
-            outFile << faculty.getFacultyCode() << ","
-                    << faculty.facultyName << ","
-                    << faculty.department << "\n";
-        }
-        outFile.close();
-    } else {
-        cout << "Unable to open file for saving faculty data.\n";
-    }
-}
-
-// Function to load faculty details from a file
-void loadFacultyData(vector<Faculty>& facultyList) {
-    ifstream inFile("faculty_data.txt");
-    string code, name, dept;
-
-    while (getline(inFile, code, ',')) {
-        getline(inFile, name, ',');
-        getline(inFile, dept);
-        facultyList.push_back(Faculty(code, name, dept));
-    }
-
-    inFile.close();
-}
-
-// Function to save student details and course data to a file
-void saveStudentData(const Student& student, const Course& course) {
-    ofstream outFile(student.rollNo + "_data.txt");
-    if (outFile.is_open()) {
-        outFile << student.name << "\n" << student.rollNo << "\n";
-        for (const auto& subject : course.subjects) {
-            outFile << subject.name << ","
-                    << subject.marks << ","
-                    << subject.grade << ","
-                    << subject.attendedClasses << ","
-                    << subject.totalClasses << "\n";
-        }
-        outFile.close();
-    } else {
-        cout << "Unable to open file for saving student data.\n";
-    }
-}
-
-// Function to load student details and course data from a file
-void loadStudentData(Student& student, Course& course) {
-    ifstream inFile(student.rollNo + "_data.txt");
-    string subjectName, grade;
-    int marks, attended, total;
-
-    if (inFile.is_open()) {
-        getline(inFile, student.name);
-        getline(inFile, student.rollNo);
-        while (getline(inFile, subjectName, ',')) {
-            inFile >> marks;
-            inFile.ignore();
-            getline(inFile, grade, ',');
-            inFile >> attended >> total;
-            course.subjects.push_back(Subject(subjectName, 3, total, attended)); // Assuming 3 credits for all subjects
-            course.subjects.back().marks = marks;
-            course.subjects.back().grade = grade;
-        }
-        inFile.close();
-    } else {
-        cout << "Unable to open file for loading student data.\n";
-    }
-}
-
-
-int main() {
-    srand(time(0));
-    vector<Faculty> facultyList;
-    int mainChoice, choice;
-    string searchCode;
-    facultyList.push_back(Faculty("F001", "Dr. Smith", "Computer Science"));
-    facultyList.push_back(Faculty("F002", "Prof. John", "Mathematics"));
-
-    do {
-        cout << "\nUniversity Management System\n";
-        cout << "1. Faculty Options\n";
-        cout << "2. Student Options\n";
-        cout << "3. Exit\n";
-        cout << "Enter your choice: ";
-        cin >> mainChoice;
-
-        switch (mainChoice) {
-            case 1:
-                do {
-                    cout << "\nFaculty Management\n";
-                    cout << "1. Add Faculty\n";
-                    cout << "2. Display All Faculty\n";
-                    cout << "3. Generate Attendance Code\n";
-                    cout << "4. Back to Main Menu\n";
-                    cout << "Enter your choice: ";
-                    cin >> choice;
-
-                    switch (choice) {
-                        case 1: {
-                            string code, name, dept;
-                            cout << "Enter Faculty Code: ";
-                            cin >> code;
-                            cout << "Enter Faculty Name: ";
-                            cin.ignore();
-                            getline(cin, name);
-                            cout << "Enter Department: ";
-                            getline(cin, dept);
-
-                            Faculty newFaculty(code, name, dept);
-                            facultyList.push_back(newFaculty);
-                            cout << "Faculty added successfully!\n";
-                            break;
-                        }
-                        case 2:
-                            if (facultyList.empty()) {
-                                cout << "No faculty members found.\n";
-                            } else {
-                                for (const auto& faculty : facultyList) {
-                                    faculty.displayInfo();
-                                    cout << "-------------------------\n";
-                                }
-                            }
-                            break;
-                        case 3:
-                            cout << "Enter Faculty Code to generate attendance code: ";
-                            cin >> searchCode;
-                            for (const auto& faculty : facultyList) {
-                                if (faculty.getFacultyCode() == searchCode) {
-                                    faculty.displayInfo();
-                                    cout << "Attendance Code: " << faculty.generateAttendanceCode() << endl;
-                                    break;
-                                }
-                            }
-                            break;
-                        case 4:
-                            cout << "Returning to Main Menu...\n";
-                            break;
-                        default:
-                            cout << "Invalid choice! Please try again.\n";
+                    } else if (studentChoice != 3) {
+                        cout << "Invalid choice. Please try again.\n";
                     }
-                } while (choice != 4);
-                break;
-
-            case 2: {
-                string name, rollNo;
-                int semesterNo;
-
-                cout << "Enter your name: ";
-                cin.ignore();
-                getline(cin, name);
-                cout << "Enter your Registration Number: ";
-                cin >> rollNo;
-                cout << "Enter the semester number (1-8): ";
-                cin >> semesterNo;
-
-                Student student(name, rollNo);
-                Course course(semesterNo);
-
-                do {
-                    cout << "\nStudent Management\n";
-                    cout << "1. Display Courses\n";
-                    cout << "2. Enter Marks\n";
-                    cout << "3. Display Results\n";
-                    cout << "4. Calculate CGPA\n";
-                    cout << "5. Enter Attendance\n";
-                    cout << "6. Back to Main Menu\n";
-                    cout << "Enter your choice: ";
-                    cin >> choice;
-
-                    switch (choice) {
-                        case 1:
-                            course.displayCourses();
-                            break;
-                        case 2:
-                            course.enterMarks();
-                            break;
-                        case 3:
-                            course.displayResults(semesterNo);
-                            break;
-                        case 4:
-                            cout << "CGPA: " << fixed << setprecision(2) << course.calculateCGPA() << endl;
-                            break;
-                        case 5:
-                            course.enterAttendance();
-                            break;
-                        case 6:
-                            cout << "Returning to Main Menu...\n";
-                            break;
-                        default:
-                            cout << "Invalid choice! Please try again.\n";
-                    }
-                } while (choice != 6);
-                break;
+                } while (studentChoice != 3);
+            } else {
+                cout << "Invalid credentials.\n";
             }
-
-            case 3:
-                cout << "Exiting...\n";
-                break;
-
-            default:
-                cout << "Invalid choice! Please try again.\n";
         }
-    } while (mainChoice != 3);
+
+    } while (choice != 5);
+
+    // Save data to files
+    ofstream studentFileOut("students.txt");
+    ofstream facultyFileOut("faculties.txt");
+
+    for (const auto& student : students) {
+        student.saveToFile(studentFileOut);
+    }
+
+    for (const auto& faculty : faculties) {
+        faculty.saveToFile(facultyFileOut);
+    }
+
+    studentFileOut.close();
+    facultyFileOut.close();
 
     return 0;
 }
