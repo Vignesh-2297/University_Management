@@ -1,4 +1,3 @@
-// Online C++ compiler to run C++ program online
 #include <iostream>
 #include <vector>
 #include <map>
@@ -285,10 +284,10 @@ int main() {
 
     int choice;
     do {
-        cout << "\nWelcome to University Management System\n";
+        cout << "\nUniversity Management System\n";
         cout << "1. Add Student\n";
         cout << "2. Add Faculty\n";
-        cout << "3. Admin Login\n";
+        cout << "3. Faculty Login\n";
         cout << "4. Student Login\n";
         cout << "5. Exit\n";
         cout << "Enter your choice: ";
@@ -335,8 +334,7 @@ int main() {
                         cin >> courseID;
                         cout << "Enter Marks: ";
                         cin >> marks;
-                         if(marks>100){
-                        
+
                         auto studentIt = find_if(students.begin(), students.end(),
                                                  [&](const Student& s) { return s.getID() == studentID; });
                         if (studentIt != students.end()) {
@@ -344,18 +342,12 @@ int main() {
                         } else {
                             cout << "Student not found.\n";
                         }
-                         }else{
-                            cout<<"Inavalid Marks"<<endl;
-                            cout<<"Enter Marks:"<<endl;
-                            cin>>marks;
-                         }
-                    
                     } else if (facultyChoice == 2) {
                         string studentID;
                         int days;
                         cout << "Enter Student ID: ";
                         cin >> studentID;
-                        cout << "Enter Attendance Percentage: ";
+                        cout << "Enter Attendance Days: ";
                         cin >> days;
 
                         auto studentIt = find_if(students.begin(), students.end(),
